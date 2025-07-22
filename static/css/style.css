@@ -119,3 +119,48 @@ body.dark-mode #songTable tbody tr:hover {
   color: #007bff;
   text-decoration: underline;
 }
+
+/* ─── Dark‐Mode Song Table Overrides ──────────────────────────────────────────── */
+
+/* Ensure the entire table is dark */
+body.dark-mode #songTable {
+  background-color: #2c3034 !important;
+}
+
+/* Darken the card-body that wraps the table */
+body.dark-mode .card-body.p-0 {
+  background-color: #2c3034 !important;
+}
+
+/* Table header */
+body.dark-mode #songTable thead {
+  background-color: #343a40 !important;
+  color: #f8f9fa !important;
+}
+
+/* Every row in the body */
+body.dark-mode #songTable tbody tr {
+  background-color: #2c3034 !important;
+  color: #f8f9fa !important;
+}
+
+/* Cells in each row */
+body.dark-mode #songTable tbody tr td,
+body.dark-mode #songTable tbody tr th {
+  background-color: #2c3034 !important;
+  color: #f8f9fa !important;
+  border-color: #444 !important;
+}
+
+/* Hover state */
+body.dark-mode #songTable tbody tr:hover {
+  background-color: #3a3f44 !important;
+  color: #ffffff !important;
+}
+
+/* ─── Make the table’s header row dark ───────────────────────────────────────── */
+body.dark-mode #songTable thead tr th {
+  background-color: #212529 !important;  /* almost-black */
+  color: #f8f9fa           !important;  /* white text */
+  border-color: #444       !important;
+}
