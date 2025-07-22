@@ -1,0 +1,121 @@
+#currentTrack { font-weight: bold; margin-bottom: 0.5rem; }
+
+/* Light mode */
+body {
+  background: #f8f9fa;
+  color: #212529;
+}
+
+footer {
+  position: sticky;
+  bottom: 0;
+  background-color: #e9ecef;  /* Light gray background */
+  color: #212529;             /* Dark text */
+  border-top: 1px solid #dee2e6;
+}
+
+#songTable tbody tr:hover {
+  background-color: #e9ecef;
+  cursor: pointer;
+}
+body.dark-mode #songTable tbody tr:hover {
+  background-color: #3a3f44;
+}
+
+/* Dark mode overrides */
+body.dark-mode {
+  background: #212529;
+  color: #f8f9fa;
+}
+body.dark-mode .navbar,
+body.dark-mode .navbar-dark,
+body.dark-mode .navbar-dark.bg-dark {
+  background-color: #343a40 !important;
+}
+body.dark-mode .card {
+  background-color: #2c3034;
+  color: #f8f9fa;
+}
+body.dark-mode .table {
+  background-color: #2c3034;
+  color: #f8f9fa;
+}
+body.dark-mode footer {
+  background-color: #343a40;
+  color: #f8f9fa;
+}
+
+.card {
+  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+  border: none;
+}
+
+/* Make track name always visible */
+footer #currentTrack {
+  color: #212529;  /* Dark text for light mode */
+}
+
+body.dark-mode footer #currentTrack {
+  color: #f8f9fa;  /* Light text for dark mode */
+}
+
+/* Album art spacing */
+#albumArt {
+  flex-shrink: 0;
+}
+
+/* Track time styling */
+#elapsedTime, #durationTime {
+  font-size: 0.9rem;
+}
+
+/* Ensure footer colors still apply */
+.footer {
+  /* light mode */
+  background-color: #f8f9fa;
+  color: #212529;
+}
+body.dark-mode .footer {
+  /* dark mode */
+  background-color: #343a40 !important;
+  color: #f8f9fa;
+}
+
+/* Dark mode support for login/register cards */
+body.dark-mode .card {
+  background-color: #2c3034;
+  color: #f8f9fa;
+}
+
+body.dark-mode .card input,
+body.dark-mode .card input::placeholder {
+  background-color: #343a40;
+  color: #f8f9fa;
+  border-color: #495057;
+}
+/* Dark Mode - table header */
+body.dark-mode .dark-mode-table-header {
+  background-color: #343a40;
+  color: #f8f9fa;
+}
+
+/* Highlight hover effect in both modes */
+#songTable tbody tr:hover {
+  background-color: #f0f0f0;
+}
+
+body.dark-mode #songTable tbody tr:hover {
+  background-color: #3a3f44;
+}
+
+#songTable td {
+  vertical-align: middle;
+  padding: 0.75rem 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-title:hover {
+  color: #007bff;
+  text-decoration: underline;
+}

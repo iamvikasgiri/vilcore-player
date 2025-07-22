@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Music Player{% endblock %}</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+        rel="stylesheet" integrity="sha384-…" crossorigin="anonymous">
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    integrity="sha384-…"
+    crossorigin="anonymous"
+   />
+  <!-- Your custom styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="d-flex flex-column vh-100">
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ url_for('index') }}">Vil's Player</a>
+      <div class="d-flex">
+        {% if current_user.is_authenticated %}
+            <span class="navbar-text text-light me-3">Hello, {{ current_user.id }}</span>
+            <button id="logoutBtn" class="btn btn-outline-light btn-sm me-2">Logout</button>
+            <button id="dmToggle" class="btn btn-outline-light btn-sm">🌓</button>
+        {% else %}
+         <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-sm me-2">Login</a>
+         <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-sm me-2">Register</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <!-- Flash messages -->
+  <div class="container mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, msg in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Main content -->
+  <div class="container py-4">
+    <div class="row">
+      <!-- Main full-width now -->
+      <main class="col-12 px-md-4">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+
+  <!-- Footer audio controls: outside content so it sticks at bottom -->
+  {% if current_user.is_authenticated %}
+  <footer class="footer p-3 mt-auto">
+    <div class="container d-flex align-items-center">
+
+      <!-- Album Art -->
+      <img id="albumArt"
+           src="{{ url_for('static', filename='images/default.png') }}"
+           alt="Album Art"
+           class="me-3"
+           style="width:60px; height:60px; object-fit:cover; border-radius:4px;">
+
+      <!-- Controls -->
+      <button id="prevBtn" class="btn btn-outline-secondary me-2">⏮️</button>
+      <button id="playPauseBtn" class="btn btn-outline-secondary me-2">▶️</button>
+      <button id="nextBtn" class="btn btn-outline-secondary me-2">⏭️</button>
+      <button id="playModeBtn" class="btn btn-outline-secondary me-4" title="Repeat One">🔂</button>
+
+
+      <!-- Track Info and Progress -->
+      <div class="flex-grow-1">
+        <div class="d-flex justify-content-between mb-1">
+          <div id="currentTrack">No track playing</div>
+          <div>
+            <span id="elapsedTime">0:00</span> / <span id="durationTime">0:00</span>
+          </div>
+        </div>
+        <div class="progress" id="progressContainer" style="cursor: pointer;">
+          <div id="progressBar" class="progress-bar" role="progressbar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </footer>
+  {% endif %}
+
+  <!-- Bootstrap JS bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-…" crossorigin="anonymous"></script>
+  <!-- Your player + DM toggle JS -->
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script>
+    // Auto-dismiss flash messages after 5 seconds
+    setTimeout(() => {
+      document.querySelectorAll('.alert').forEach(el => {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(el);
+        bsAlert.close();
+      });
+    }, 5000);
+  </script>
+</body>
+</html>

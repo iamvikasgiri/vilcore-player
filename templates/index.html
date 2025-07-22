@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}Player{% endblock %}
+
+{% block content %}
+{% if current_user.is_admin %}
+<div class="card mb-4">
+  <div class="card-header bg-primary text-white">
+    <i class="fa-solid fa-upload me-2"></i> Upload New Track
+  </div>
+  <div class="card-body">
+    <div class="input-group">
+      <input type="file" id="fileInput" class="form-control" accept=".mp3,.wav">
+      <button id="uploadBtn" class="btn btn-primary">
+        <i class="fa-solid fa-cloud-arrow-up"></i> Upload
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+
+  <!-- Song List Table -->
+  <div class="card shadow-sm mb-4">
+  <div class="card-header bg-primary text-white">
+     Available Songs
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0" id="songTable">
+      <thead class="table-light dark-mode-table-header">
+        <tr>
+          <th class="ps-3" style="width: 50px;">#</th>
+          <th>Title</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
