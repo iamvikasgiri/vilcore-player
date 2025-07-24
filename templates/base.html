@@ -23,7 +23,7 @@
       <a class="navbar-brand" href="{{ url_for('index') }}">Vil's Player</a>
       <div class="d-flex">
         {% if current_user.is_authenticated %}
-            <span class="navbar-text text-light me-3">Hello, {{ current_user.id }}</span>
+            <span class="navbar-text text-light me-3">Hello, {{ current_user.username }}</span>
             <button id="logoutBtn" class="btn btn-outline-light btn-sm me-2">Logout</button>
             <button id="dmToggle" class="btn btn-outline-light btn-sm">🌓</button>
         {% else %}

@@ -46,22 +46,38 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (res.ok) {
+        window.location.reload();  // Let Flask flash handle the message
+
+        fileInput.value = '';
         loadSongs();
       } else {
-        alert('Upload failed');
+        const msg = document.createElement('div');
+        msg.className = 'alert alert-danger';
+        msg.textContent = 'Upload failed';
+        document.body.prepend(msg);
+        setTimeout(() => msg.remove(), 3000);
       }
+
     };
   }
 
   // ─── Load & Render Song List ─────────────────────────────────────────────────
   async function loadSongs() {
-    const res = await fetch('/songs');
+    const res = await fetch('/songs');  
     if (!res.ok) {
       console.error('Failed to fetch songs');
       return;
     }
+
     const files = await res.json();
-    playlist = files.map(f => f.filename); // for playTrack()
+
+    // Store full metadata (not just filename)
+    playlist = files.map(f => ({
+      filename: f.filename,
+      title: f.title,
+      artist: f.artist,
+      url: f.public_url
+    }));
     shuffledIndices = generateShuffledIndices(playlist.length);
 
     tableBody.innerHTML = '';
@@ -83,10 +99,10 @@ document.addEventListener("DOMContentLoaded", () => {
          </div>
         </td>
       `;
-
       row.onclick = () => playTrack(i);
     });
   }
+
 
   function generateShuffledIndices(length) {
     const indices = Array.from({ length }, (_, i) => i);
@@ -141,10 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
         : meta.title;
 
     // 3️⃣ Load and play
-    // audioPlayer.src = `/stream/${encodeURIComponent(name)}`;
-    // audioPlayer.play();
-    // playPauseBtn.textContent = '⏸️';
-    audioPlayer.src = `/stream/${encodeURIComponent(playlist[i])}`;
+    audioPlayer.src = playlist[i].url;
     audioPlayer.play();
     // currentTrack.textContent = formatTitle(playlist[i]);
 
