@@ -31,6 +31,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${m}:${s}`;
   }
 
+  // When metadata (incl. duration) is loaded, update the total time
+  audioPlayer.addEventListener('loadedmetadata', () => {
+    durationTimeEl.textContent = formatTime(audioPlayer.duration);
+  });
+
+
+
   // ─── Upload Handler ───────────────────────────────────────────────────────────
   if (uploadBtn && fileInput) {
     uploadBtn.onclick = () => {
@@ -149,7 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 5) Reset & display duration
     elapsedTimeEl.textContent = '0:00';
-    durationTimeEl.textContent = '0:00';
+    
     audioPlayer.onloadedmetadata = () => {
       durationTimeEl.textContent = formatTime(audioPlayer.duration);
     };
