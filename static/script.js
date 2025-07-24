@@ -33,23 +33,46 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Upload Handler ───────────────────────────────────────────────────────────
   if (uploadBtn && fileInput) {
-    uploadBtn.onclick = async () => {
-      if (!fileInput.files[0]) {
-        return alert('Select a file first');
+    uploadBtn.onclick = () => {
+      const fileList = fileInput.files;
+      if (!fileList.length) {
+        return alert("Select at least one file first");
       }
+      if (fileList.length > 50) {
+        return alert("Please select up to 50 files");
+      }
+
+      // Build FormData
       const form = new FormData();
-      form.append('file', fileInput.files[0]);
-
-      const res = await fetch('/upload', {
-        method: 'POST',
-        body: form
-      });
-
-      if (res.ok) {
-        loadSongs();
-      } else {
-        alert('Upload failed');
+      for (const f of fileList) {
+        form.append("files", f);
       }
+
+      // Show progress bar
+      const container = document.getElementById("uploadProgressContainer");
+      const bar       = document.getElementById("uploadProgressBar");
+      container.style.display = "block";
+      bar.style.width = "0%";
+      bar.textContent = "0%";
+
+      // Send via XHR to get upload progress events
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/upload", true);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          bar.style.width = pct + "%";
+          bar.textContent = pct + "%";
+        }
+      };
+      xhr.onload = () => {
+        // on success, reload to show flash and updated list
+        window.location.reload();
+      };
+      xhr.onerror = () => {
+        alert("Upload failed due to a network error.");
+      };
+      xhr.send(form);
     };
   }
 
@@ -60,33 +83,31 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error('Failed to fetch songs');
       return;
     }
-    const files = await res.json();
-    playlist = files.map(f => f.filename); // for playTrack()
-    shuffledIndices = generateShuffledIndices(playlist.length);
-
+    const songs = await res.json();
+    playlist = songs.map(s => ({
+      ...s,
+      url: s.public_url   // <-- use the bucket URL
+    }));
     tableBody.innerHTML = '';
-
-    files.forEach((file, i) => {
+    songs.forEach((song, i) => {
       const row = tableBody.insertRow();
       row.innerHTML = `
         <th scope="row">${i + 1}</th>
         <td class="d-flex align-items-center" style="cursor: pointer;">
-          <img src="/art/${encodeURIComponent(file.filename)}"
-               alt="Art"
-               class="me-2"
-               style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px;">
+         <img src="/art/${encodeURIComponent(song.filename)}"
+            alt="Art"
+             class="table-art me-2">
           <div>
-            <strong>${file.title}</strong><br>
-            ${file.artist && file.artist.toLowerCase() !== 'unknown'
-              ? `<small class="text-muted">${file.artist}</small>`
-              : ''}
-         </div>
+            <strong>${song.title}</strong><br>
+            ${song.artist ? `<small>${song.artist}</small>` : ''}
+          </div>
         </td>
       `;
-
       row.onclick = () => playTrack(i);
     });
   }
+
+
 
   function generateShuffledIndices(length) {
     const indices = Array.from({ length }, (_, i) => i);
@@ -102,66 +123,38 @@ document.addEventListener("DOMContentLoaded", () => {
   async function playTrack(i) {
     if (i < 0 || i >= playlist.length) return;
     currentIndex = i;
-    
-    // Remove existing highlight
-    document.querySelectorAll('#songTable tbody tr').forEach(row => {
-    row.classList.remove('table-active');
-    });
 
-    // Highlight current row
+    // 1) Highlight the selected row
+    document.querySelectorAll('#songTable tbody tr')
+      .forEach(r => r.classList.remove('table-active'));
     const rows = document.querySelectorAll('#songTable tbody tr');
     if (rows[i]) {
       rows[i].classList.add('table-active');
-    }
-
-    // Scroll into view
-    if (rows[i]) {
       rows[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    
-    const name = playlist[i];
+    // 2) Grab our track object
+    const track = playlist[i];  // { filename, title, artist, url }
 
-    // 1️⃣ Fetch metadata
-    let meta = { title: name.replace(/\.\w+$/, ''), artist: '' };
-    try {
-      const res = await fetch(`/metadata/${encodeURIComponent(name)}`);
-      if (res.ok) {
-        meta = await res.json();
-      }
-    } catch (e) {
-      console.warn('Metadata fetch failed, using filename');
-    }
+    // 3) Update UI
+    currentTrack.textContent = track.artist
+      ? `${track.title} — ${track.artist}`
+      : track.title;
+    albumArt.src = `/art/${encodeURIComponent(track.filename)}`;
 
-    // 2️⃣ Update UI
-    const artistClean = meta.artist?.toLowerCase().trim();
-    currentTrack.textContent =
-      artistClean && artistClean !== 'unknown artist'
-        ? `${meta.title} — ${meta.artist}`
-        : meta.title;
-
-    // 3️⃣ Load and play
-    // audioPlayer.src = `/stream/${encodeURIComponent(name)}`;
-    // audioPlayer.play();
-    // playPauseBtn.textContent = '⏸️';
-    audioPlayer.src = `/stream/${encodeURIComponent(playlist[i])}`;
-    audioPlayer.play();
-    // currentTrack.textContent = formatTitle(playlist[i]);
-
+    // 4) Load & play from the bucket URL
+    audioPlayer.src = track.url;
+    await audioPlayer.play();
     playPauseBtn.textContent = '⏸️';
 
-    // 4️⃣ Reset times
-    elapsedTimeEl.textContent  = '0:00';
+    // 5) Reset & display duration
+    elapsedTimeEl.textContent = '0:00';
     durationTimeEl.textContent = '0:00';
-
-    // 5️⃣ When metadata is loaded, set duration
     audioPlayer.onloadedmetadata = () => {
       durationTimeEl.textContent = formatTime(audioPlayer.duration);
     };
-
-    // 6️⃣ Fetch album art (you already have this)
-    albumArt.src = `/art/${encodeURIComponent(name)}`;
   }
+
 
   function togglePlayMode() {
     if (playMode === 'repeat-one') {

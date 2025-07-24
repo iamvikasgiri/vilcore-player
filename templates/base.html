@@ -23,7 +23,7 @@
       <a class="navbar-brand" href="{{ url_for('index') }}">Vil's Player</a>
       <div class="d-flex">
         {% if current_user.is_authenticated %}
-            <span class="navbar-text text-light me-3">Hello, {{ current_user.id }}</span>
+            <span class="navbar-text text-light me-3">Hello, {{ current_user.username }}</span>
             <button id="logoutBtn" class="btn btn-outline-light btn-sm me-2">Logout</button>
             <button id="dmToggle" class="btn btn-outline-light btn-sm">🌓</button>
         {% else %}
@@ -66,10 +66,9 @@
 
       <!-- Album Art -->
       <img id="albumArt"
-           src="{{ url_for('static', filename='images/default.png') }}"
-           alt="Album Art"
-           class="me-3"
-           style="width:60px; height:60px; object-fit:cover; border-radius:4px;">
+          src="{{ url_for('static', filename='images/default.png') }}"
+          alt="Album Art"
+          class="album-art me-3">
 
       <!-- Controls -->
       <button id="prevBtn" class="btn btn-outline-secondary me-2">⏮️</button>

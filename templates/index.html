@@ -10,11 +10,26 @@
   </div>
   <div class="card-body">
     <div class="input-group">
-      <input type="file" id="fileInput" class="form-control" accept=".mp3,.wav">
+      <input type="file"
+           id="fileInput"
+           name="files"                     
+           class="form-control"
+           accept=".mp3,.wav"
+           multiple                       
+           data-bs-toggle="tooltip"
+           title="You can select up to 50 files at once">
       <button id="uploadBtn" class="btn btn-primary">
         <i class="fa-solid fa-cloud-arrow-up"></i> Upload
       </button>
     </div>
+
+    <!-- progress bar container, hidden until upload starts -->
+    <div class="progress mt-3" id="uploadProgressContainer" style="height: 1.5rem; display: none;">
+      <div id="uploadProgressBar" class="progress-bar" role="progressbar" style="width: 0%">
+        0%
+      </div>
+    </div>
+
   </div>
 </div>
 {% endif %}

@@ -12,6 +12,8 @@ from mutagen import File as MutagenFile
 from mutagen.easyid3 import EasyID3
 import requests
 from io import BytesIO
+from supabase_client import supabase
+import bcrypt
 
 
 # ─── App & Login Setup ────────────────────────────────────────────────────────
@@ -23,21 +25,29 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'  # redirect to /login if @login_required fails
 
 # ─── In‑Memory User Store ────────────────────────────────────────────────────
-users = {
-  'vilero': {'password': 'vilero', 'is_admin': True},
-  # other prebuilt users…
-}
+# users = {
+#   'vilero': {'password': 'vilero', 'is_admin': True},
+#   # other prebuilt users…
+# }
 
 class User(UserMixin):
-    def __init__(self, username):
-        self.id = username
-        self.is_admin = users.get(username, {}).get('is_admin', False)
+    def __init__(self, id: str, username: str, is_admin: bool):
+        self.id = id            # uuid from Supabase
+        self.username = username
+        self.is_admin = is_admin
+
+    def get_id(self):
+        return self.id
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    if user_id in users:
-        return User(user_id)
+    # Query Supabase for this user by id
+    resp = supabase.from_("users").select("id, username, is_admin")\
+                    .eq("id", user_id).single().execute()
+    data = resp.data
+    if data:
+        return User(data["id"], data["username"], data["is_admin"])
     return None
 
 # ─── Routes: Register, Login, Logout ─────────────────────────────────────────
@@ -45,30 +55,100 @@ def load_user(user_id):
 def register():
     if request.method == 'POST':
         uname = request.form['username']
-        pwd   = request.form['password']
-        if uname in users:
+        pwd   = request.form['password'].encode('utf-8')
+
+        # ─── ① Check username uniqueness ─────────────────────────────────
+        try:
+            check = (
+                supabase
+                .from_("users")
+                .select("id")
+                .eq("username", uname)
+                .execute()
+            )
+            existing = check.data or []
+        except Exception as e:
+            app.logger.error("Supabase register-check error: %s", e)
+            flash('Registration service unavailable. Please try again.', 'danger')
+            return redirect(url_for('register'))
+
+        if existing:
             flash('Username already exists', 'danger')
             return redirect(url_for('register'))
-        users[uname] = {'password': pwd, 'is_admin': False}
-        user = User(uname)
+
+        # ─── ② Hash + insert new user ───────────────────────────────────
+        pw_hash = bcrypt.hashpw(pwd, bcrypt.gensalt()).decode('utf-8')
+        try:
+            insert = (
+                supabase
+                .from_("users")
+                .insert({"username": uname, "password": pw_hash, "is_admin": False})
+                .execute()
+            )
+            new_rows = insert.data or []
+        except Exception as e:
+            app.logger.error("Supabase register-insert error: %s", e)
+            flash('Registration failed. Please try again.', 'danger')
+            return redirect(url_for('register'))
+
+        if not new_rows:
+            flash('Registration failed. Please try again.', 'danger')
+            return redirect(url_for('register'))
+
+        new_user = new_rows[0]
+        user = User(new_user["id"], new_user["username"], new_user["is_admin"])
         login_user(user)
         flash('Registration successful! Welcome, ' + uname, 'success')
         return redirect(url_for('index'))
+
     return render_template('register.html')
+
+
+
 
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'POST':
         uname = request.form['username']
-        pwd   = request.form['password']
-        if users.get(uname, {}).get('password') == pwd:
-            user = User(uname)
+        pwd   = request.form['password'].encode('utf-8')
+
+        # ─── ① Try to fetch the user row ─────────────────────────────────
+        try:
+            resp = (
+                supabase
+                .from_("users")
+                .select("id, username, password, is_admin")
+                .eq("username", uname)
+                .execute()
+            )
+            users_list = resp.data or []
+        except Exception as e:
+            app.logger.error("Supabase login error: %s", e)
+            flash('Login service unavailable. Please try again later.', 'danger')
+            return redirect(url_for('login'))
+
+        # ─── ② No matching user? ──────────────────────────────────────────
+        if not users_list:
+            flash('Invalid credentials, please try again.', 'danger')
+            return redirect(url_for('login'))
+
+        user_row = users_list[0]
+        stored_pw = user_row["password"].encode('utf-8')
+
+        # ─── ③ Check password ─────────────────────────────────────────────
+        if bcrypt.checkpw(pwd, stored_pw):
+            user = User(user_row["id"], user_row["username"], user_row["is_admin"])
             login_user(user)
             flash('Logged in successfully!', 'success')
             return redirect(url_for('index'))
+
         flash('Invalid credentials, please try again.', 'danger')
         return redirect(url_for('login'))
+
     return render_template('login.html')
+
+
+
 
 @app.route('/logout')
 @login_required
@@ -94,36 +174,79 @@ def index():
 def upload():
     if not current_user.is_admin:
         abort(403)
-    f = request.files.get('file')
-    if not f or not allowed_file(f.filename):
-        abort(400, 'Invalid file type')
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    path = os.path.join(UPLOAD_FOLDER, f.filename)
-    f.save(path)
-    flash(f'Uploaded "{f.filename}"', 'info')
-    return redirect(url_for('index'))
+
+    files = request.files.getlist('files')
+    if not files:
+        flash("No files selected", "warning")
+        return redirect(url_for("index"))
+
+    # Limit to 50 at a time
+    if len(files) > 50:
+        flash("Please select at most 50 files at once", "warning")
+        return redirect(url_for("index"))
+
+    success = 0
+    for f in files:
+        if not allowed_file(f.filename):
+            continue
+
+        filename = f.filename
+        data = f.read()
+        storage_path = f"songs/{filename}"
+
+        # 1) Upload to Supabase Storage
+        try:
+            supabase.storage.from_("songs") \
+                .upload(storage_path, data, {"content-type": f.mimetype})
+        except Exception as e:
+            app.logger.error("Storage upload error for %s: %s", filename, e)
+            continue  # skip recording in DB
+
+        # 2) Public URL
+        public_url = supabase.storage.from_("songs") \
+                         .get_public_url(storage_path)
+
+        # 3) Record metadata in DB
+        song_meta = {
+            "filename": filename,
+            "title": os.path.splitext(filename)[0],
+            "artist": "",
+            "file_path": storage_path,
+            "file_size": len(data),
+            "public_url": public_url,
+            "uploaded_by": current_user.id
+        }
+        try:
+            supabase.from_("songs").insert(song_meta).execute()
+            success += 1
+        except Exception as e:
+            app.logger.error("DB insert error for %s: %s", filename, e)
+            # we don’t abort—we just keep going
+
+    flash(f"{success} out of {len(files)} uploaded & recorded", "success")
+    return redirect(url_for("index"))
+
 
 @app.route('/songs')
 @login_required
 def list_songs():
-    from mutagen import File
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    result = []
+    try:
+        resp = (
+            supabase
+            .from_("songs")
+            .select("filename, title, artist, public_url")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        songs = resp.data or []
+    except Exception as e:
+        app.logger.error("Supabase songs-fetch error: %s", e)
+        abort(500, "Could not fetch songs")
 
-    for filename in os.listdir(UPLOAD_FOLDER):
-        if not allowed_file(filename):
-            continue
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        meta = File(filepath, easy=True)
-        title = meta.get('title', [os.path.splitext(filename)[0]])[0]
-        artist = meta.get('artist', [''])[0]
-        result.append({
-            'filename': filename,
-            'title': title,
-            'artist': artist
-        })
+    return jsonify(songs)
 
-    return jsonify(result)
+
+
 
 
 def get_range(request):
@@ -133,26 +256,6 @@ def get_range(request):
     _, range_spec = range_header.split('=', 1)
     start_str, end_str = range_spec.split('-', 1)
     return int(start_str), int(end_str) if end_str else None
-
-@app.route('/stream/<filename>')
-@login_required
-def stream(filename):
-    path = os.path.join(UPLOAD_FOLDER, filename)
-    if not os.path.isfile(path):
-        abort(404)
-    file_size = os.path.getsize(path)
-    byte_range = get_range(request)
-    if byte_range:
-        start, end = byte_range
-        end = end or file_size - 1
-        length = end - start + 1
-        with open(path, 'rb') as f:
-            f.seek(start)
-            chunk = f.read(length)
-        resp = Response(chunk, 206, mimetype='audio/mpeg', direct_passthrough=True)
-        resp.headers.add('Content-Range', f'bytes {start}-{end}/{file_size}')
-        return resp
-    return send_file(path, mimetype='audio/mpeg')
 
 @app.route('/art/<filename>')
 @login_required
