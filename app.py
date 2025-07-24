@@ -175,57 +175,55 @@ def upload():
     if not current_user.is_admin:
         abort(403)
 
-    f = request.files.get('file')
-    if not f or not allowed_file(f.filename):
-        abort(400, "Invalid file type")
-
-    filename = f.filename
-    # 1) Upload to Supabase Storage
-    try:
-        # read file bytes
-        data = f.read()
-        # choose a path, e.g. "songs/<filename>"
-        storage_path = f"songs/{filename}"
-        res = (
-            supabase
-            .storage
-            .from_("songs")
-            .upload(storage_path, data, {"content-type": f.mimetype})
-        )
-        if res.get("error"):
-            app.logger.error("Supabase Storage error: %s", res["error"])
-            raise Exception(res["error"]["message"])
-    except Exception as e:
-        flash("Failed to upload to storage: " + str(e), "danger")
+    files = request.files.getlist('files')
+    if not files:
+        flash("No files selected", "warning")
         return redirect(url_for("index"))
 
-    # 2) Make the file publicly accessible
-    public_url = supabase.storage.from_("songs").get_public_url(storage_path)["publicUrl"]
+    # Limit to 50 at a time
+    if len(files) > 50:
+        flash("Please select at most 50 files at once", "warning")
+        return redirect(url_for("index"))
 
-    # 3) Record metadata + URL in your songs table
-    stat = len(data)
-    song_meta = {
-        "filename": filename,
-        "title": os.path.splitext(filename)[0],
-        "artist": "",
-        "file_path": storage_path,
-        "file_size": stat,
-        "public_url": public_url,
-        "uploaded_by": current_user.id
-    }
-    print("Recording song_meta to DB:", song_meta)
+    success = 0
+    for f in files:
+        if not allowed_file(f.filename):
+            continue
 
-    try:
-        insert = supabase.from_("songs").insert(song_meta).execute()
-        if insert.get("error"):
-            app.logger.error("Supabase DB insert error: %s", insert["error"])
-            flash("Upload successful, but failed to record in DB", "warning")
-        else:
-            flash(f"{filename} uploaded and saved to database", "success")
-    except Exception as e:
-        app.logger.error("Exception during DB insert: %s", str(e))
-        flash("Failed to record song metadata to DB", "danger")
+        filename = f.filename
+        data = f.read()
+        storage_path = f"songs/{filename}"
 
+        # 1) Upload to Supabase Storage
+        try:
+            supabase.storage.from_("songs") \
+                .upload(storage_path, data, {"content-type": f.mimetype})
+        except Exception as e:
+            app.logger.error("Storage upload error for %s: %s", filename, e)
+            continue  # skip recording in DB
+
+        # 2) Public URL
+        public_url = supabase.storage.from_("songs") \
+                         .get_public_url(storage_path)
+
+        # 3) Record metadata in DB
+        song_meta = {
+            "filename": filename,
+            "title": os.path.splitext(filename)[0],
+            "artist": "",
+            "file_path": storage_path,
+            "file_size": len(data),
+            "public_url": public_url,
+            "uploaded_by": current_user.id
+        }
+        try:
+            supabase.from_("songs").insert(song_meta).execute()
+            success += 1
+        except Exception as e:
+            app.logger.error("DB insert error for %s: %s", filename, e)
+            # we don’t abort—we just keep going
+
+    flash(f"{success} out of {len(files)} uploaded & recorded", "success")
     return redirect(url_for("index"))
 
 
@@ -258,27 +256,6 @@ def get_range(request):
     _, range_spec = range_header.split('=', 1)
     start_str, end_str = range_spec.split('-', 1)
     return int(start_str), int(end_str) if end_str else None
-
-# Remove this /stream part
-@app.route('/stream/<filename>')
-@login_required
-def stream(filename):
-    path = os.path.join(UPLOAD_FOLDER, filename)
-    if not os.path.isfile(path):
-        abort(404)
-    file_size = os.path.getsize(path)
-    byte_range = get_range(request)
-    if byte_range:
-        start, end = byte_range
-        end = end or file_size - 1
-        length = end - start + 1
-        with open(path, 'rb') as f:
-            f.seek(start)
-            chunk = f.read(length)
-        resp = Response(chunk, 206, mimetype='audio/mpeg', direct_passthrough=True)
-        resp.headers.add('Content-Range', f'bytes {start}-{end}/{file_size}')
-        return resp
-    return send_file(path, mimetype='audio/mpeg')
 
 @app.route('/art/<filename>')
 @login_required

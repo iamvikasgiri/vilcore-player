@@ -59,10 +59,6 @@ body.dark-mode footer #currentTrack {
   color: #f8f9fa;  /* Light text for dark mode */
 }
 
-/* Album art spacing */
-#albumArt {
-  flex-shrink: 0;
-}
 
 /* Track time styling */
 #elapsedTime, #durationTime {
@@ -163,4 +159,25 @@ body.dark-mode #songTable thead tr th {
   background-color: #212529 !important;  /* almost-black */
   color: #f8f9fa           !important;  /* white text */
   border-color: #444       !important;
+}
+
+/* Album art spacing */
+#albumArt {
+  flex-shrink: 0;
+}
+/* -------------------------------------------------------------------------------- */
+/* Uniform Album Art Styling (thumbnails + footer)                                   */
+/* -------------------------------------------------------------------------------- */
+.album-art,
+#albumArt {
+  width: 60px;            /* fixed square */
+  height: 60px;
+  object-fit: cover;      /* crop to fill */
+  border-radius: 4px;     /* match footer radius */
+}
+.table-art {
+  width: 32px;            /* smaller in list */
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
 }
