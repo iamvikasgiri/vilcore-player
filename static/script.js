@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const songs = await res.json();
     playlist = songs.map(s => ({
       ...s,
-      url: s.public_url   // <-- use the bucket URL
+      url: s.url
     }));
     tableBody.innerHTML = '';
     songs.forEach((song, i) => {
