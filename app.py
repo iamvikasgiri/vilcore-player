@@ -14,6 +14,8 @@ import requests
 from io import BytesIO
 from supabase_client import supabase
 import bcrypt
+from supabase_client import get_song_signed_url
+from concurrent.futures import ThreadPoolExecutor
 
 
 # ─── App & Login Setup ────────────────────────────────────────────────────────
@@ -231,11 +233,13 @@ def upload():
 @login_required
 def list_songs():
     try:
+        # fetch only the latest 50 songs
         resp = (
             supabase
             .from_("songs")
-            .select("filename, title, artist, public_url")
+            .select("filename, title, artist, file_path")
             .order("created_at", desc=True)
+            .limit(20)
             .execute()
         )
         songs = resp.data or []
@@ -243,8 +247,24 @@ def list_songs():
         app.logger.error("Supabase songs-fetch error: %s", e)
         abort(500, "Could not fetch songs")
 
-    return jsonify(songs)
+    # generate signed URLs in parallel
+    def make_entry(s):
+        signed = get_song_signed_url(s["file_path"])
+        if not signed:
+            return None
+        return {
+            "filename": s["filename"],
+            "title":    s["title"],
+            "artist":   s["artist"],
+            "url":      signed
+        }
 
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        entries = pool.map(make_entry, songs)
+    # filter out any failures
+    out = [e for e in entries if e]
+
+    return jsonify(out)
 
 
 
