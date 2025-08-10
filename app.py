@@ -8,6 +8,7 @@ from flask_login import (
     LoginManager, UserMixin,
     login_user, login_required, logout_user, current_user
 )
+from werkzeug.utils import secure_filename
 from mutagen import File as MutagenFile
 from mutagen.easyid3 import EasyID3
 import requests
@@ -92,16 +93,40 @@ def index():
 @app.route('/upload', methods=['POST'])
 @login_required
 def upload():
+    # Admin-only upload
     if not current_user.is_admin:
         abort(403)
-    f = request.files.get('file')
-    if not f or not allowed_file(f.filename):
-        abort(400, 'Invalid file type')
+
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    path = os.path.join(UPLOAD_FOLDER, f.filename)
-    f.save(path)
-    flash(f'Uploaded "{f.filename}"', 'info')
-    return redirect(url_for('index'))
+
+    # Accept either: many files under 'files' OR single file under 'file'
+    files = request.files.getlist('files') or []
+    single = request.files.get('file')
+    if single and (not files):
+        files = [single]
+
+    if not files:
+        # No files uploaded
+        return jsonify({"error": "No files uploaded"}), 400
+
+    results = []
+    # limit to 50 files per request
+    for f in files[:50]:
+        filename = secure_filename(f.filename)
+        if not filename or not allowed_file(filename):
+            results.append({"filename": f.filename, "status": "invalid_type"})
+            continue
+
+        dest = os.path.join(UPLOAD_FOLDER, filename)
+        try:
+            f.save(dest)
+            results.append({"filename": filename, "status": "ok"})
+        except Exception as e:
+            app.logger.exception("Failed saving file %s: %s", filename, e)
+            results.append({"filename": filename, "status": "error", "error": str(e)})
+
+    return jsonify({"results": results}), 200
+
 
 @app.route('/songs')
 @login_required

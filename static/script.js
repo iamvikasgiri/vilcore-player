@@ -33,25 +33,112 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Upload Handler ───────────────────────────────────────────────────────────
   if (uploadBtn && fileInput) {
-    uploadBtn.onclick = async () => {
-      if (!fileInput.files[0]) {
-        return alert('Select a file first');
-      }
-      const form = new FormData();
-      form.append('file', fileInput.files[0]);
+  uploadBtn.onclick = async () => {
+    const files = fileInput.files;
+    if (!files || files.length === 0) {
+      return alert('Select a file first');
+    }
 
-      const res = await fetch('/upload', {
-        method: 'POST',
-        body: form
+    // limit to 50 files
+    const toUpload = Array.from(files).slice(0, 50);
+
+    // Create a little upload UI container at top of page
+    let container = document.getElementById('uploadProgressContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'uploadProgressContainer';
+      container.style.margin = '10px';
+      document.body.prepend(container);
+    }
+    container.innerHTML = ''; // clear previous
+
+    // helper to upload a single file and show progress
+    function uploadSingleFile(file) {
+      return new Promise((resolve, reject) => {
+        const row = document.createElement('div');
+        row.className = 'mb-2';
+        row.innerHTML = `
+          <div><strong>${file.name}</strong></div>
+          <div class="progress" style="height: 10px;">
+            <div class="progress-bar" role="progressbar" style="width:0%"></div>
+          </div>
+          <div class="small text-muted mt-1 status">Waiting...</div>
+        `;
+        container.appendChild(row);
+
+        const progressBar = row.querySelector('.progress-bar');
+        const status = row.querySelector('.status');
+
+        const form = new FormData();
+        // send as single-file field (server accepts 'file' or 'files')
+        form.append('file', file);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload', true);
+
+        xhr.upload.onprogress = function (ev) {
+          if (ev.lengthComputable) {
+            const pct = Math.round((ev.loaded / ev.total) * 100);
+            progressBar.style.width = pct + '%';
+            progressBar.textContent = pct + '%';
+          }
+        };
+
+        xhr.onload = function () {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const json = JSON.parse(xhr.responseText);
+              // server responds with results array for this single file request
+              const r = (json.results && json.results[0]) || json;
+              if (r && r.status === 'ok') {
+                status.textContent = 'Uploaded';
+                status.classList.add('text-success');
+                resolve(r);
+              } else {
+                status.textContent = 'Failed: ' + (r.error || JSON.stringify(r));
+                status.classList.add('text-danger');
+                reject(r);
+              }
+            } catch (e) {
+              status.textContent = 'Uploaded (no JSON response)';
+              status.classList.add('text-success');
+              resolve({status: 'ok'});
+            }
+          } else {
+            status.textContent = 'Upload failed (' + xhr.status + ')';
+            status.classList.add('text-danger');
+            reject({status: 'error', code: xhr.status});
+          }
+        };
+
+        xhr.onerror = function () {
+          status.textContent = 'Network error';
+          status.classList.add('text-danger');
+          reject({status: 'error', reason: 'network'});
+        };
+
+        xhr.send(form);
       });
+    }
 
-      if (res.ok) {
-        loadSongs();
-      } else {
-        alert('Upload failed');
+    // sequential upload to avoid many simultaneous connections
+    for (const f of toUpload) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await uploadSingleFile(f);
+      } catch (err) {
+        console.warn('Upload error', err);
+        // continue to next file (you can stop instead if you prefer)
       }
-    };
-  }
+    }
+
+    // Finished: refresh song list (small delay to allow server)
+    setTimeout(loadSongs, 700);
+    // clear file input
+    fileInput.value = '';
+  };
+}
+
 
   // ─── Load & Render Song List ─────────────────────────────────────────────────
   async function loadSongs() {
@@ -72,9 +159,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <th scope="row">${i + 1}</th>
         <td class="d-flex align-items-center" style="cursor: pointer;">
           <img src="/art/${encodeURIComponent(file.filename)}"
-               alt="Art"
-               class="me-2"
-               style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px;">
+              alt="Art"
+              class="me-2 song-thumb">
           <div>
             <strong>${file.title}</strong><br>
             ${file.artist && file.artist.toLowerCase() !== 'unknown'

@@ -164,3 +164,20 @@ body.dark-mode #songTable thead tr th {
   color: #f8f9fa           !important;  /* white text */
   border-color: #444       !important;
 }
+
+/* Song list thumbnail */
+.song-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* Smaller footer album art (already set), ensure object-fit */
+footer #albumArt {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+}
