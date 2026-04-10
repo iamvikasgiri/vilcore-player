@@ -59,6 +59,11 @@ body.dark-mode footer #currentTrack {
   color: #f8f9fa;  /* Light text for dark mode */
 }
 
+/* Fix for Bootstrap's text-muted class in dark mode */
+body.dark-mode .text-muted {
+  color: #ced4da !important; /* Light gray/off-white so it remains visible */
+}
+
 /* Album art spacing */
 #albumArt {
   flex-shrink: 0;
