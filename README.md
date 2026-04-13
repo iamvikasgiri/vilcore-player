@@ -1,4 +1,4 @@
-# Vilcore Player (Vil's Player)
+# Vilcore Player
 
 A lightweight, sleek, and feature-rich web-based music player. Built with a Python/Flask backend and a responsive HTML/vanilla JavaScript frontend using Bootstrap 5. 
 
