@@ -31,6 +31,19 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${m}:${s}`;
   }
 
+  // ─── Delete Handler ───────────────────────────────────────────────────────────
+  async function deleteSong(filename) {
+    if (!confirm("Delete this song?")) return;
+
+    const res = await fetch(`/delete-song/${encodeURIComponent(filename)}`, {
+      method: "DELETE"
+    });
+
+    if (res.ok) {
+      loadAdminSongs(document.getElementById("sortSelect").value);
+    }
+  }
+
   // ─── Upload Handler ───────────────────────────────────────────────────────────
   if (uploadBtn && fileInput) {
   uploadBtn.onclick = async () => {
@@ -138,6 +151,48 @@ document.addEventListener("DOMContentLoaded", () => {
     fileInput.value = '';
   };
 }
+
+  // ─── Add Admin Song Loader ────────────────────────────────────────────────────────
+  async function loadAdminSongs(sortBy = "title_asc") {
+    const res = await fetch(`/admin/songs?sort=${sortBy}`);
+    const songs = await res.json();
+
+    const tbody = document.querySelector("#adminSongTable tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    songs.forEach((song, i) => {
+      const row = tbody.insertRow();
+      row.innerHTML = `
+      <th scope="row">${i + 1}</th>
+      <td class="d-flex align-items-center">
+        <img src="/art/${encodeURIComponent(song.filename)}"
+            alt="Art"
+            class="me-2 song-thumb">
+        <div>
+          <strong>${song.title}</strong>
+        </div>
+      </td>
+      <td>
+        <button class="btn btn-danger btn-sm"
+          onclick="deleteSong(${JSON.stringify(song.filename)})">
+          Delete
+        </button>
+      </td>
+    `;
+    });
+  }
+
+  // ─── Sort Change Handler ─────────────────────────────────────────────────
+  const sortSelect = document.getElementById("sortSelect");
+  if (sortSelect) {
+    loadAdminSongs(sortSelect.value);
+
+    sortSelect.addEventListener("change", () => {
+      loadAdminSongs(sortSelect.value);
+    });
+  }
 
 
   // ─── Load & Render Song List ─────────────────────────────────────────────────

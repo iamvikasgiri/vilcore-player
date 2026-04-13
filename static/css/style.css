@@ -186,3 +186,24 @@ footer #albumArt {
   object-fit: cover;
   border-radius: 4px;
 }
+
+/* CSS for admin Table */
+body.dark-mode #adminSongTable {
+  background-color: #2c3034 !important;
+}
+
+body.dark-mode #adminSongTable tbody tr {
+  background-color: #2c3034 !important;
+  color: #f8f9fa !important;
+}
+
+body.dark-mode #adminSongTable tbody tr td,
+body.dark-mode #adminSongTable tbody tr th {
+  background-color: #2c3034 !important;
+  color: #f8f9fa !important;
+}
+
+body.dark-mode #adminSongTable thead tr th {
+  background-color: #212529 !important;
+  color: #f8f9fa !important;
+}

@@ -3,7 +3,6 @@ __pycache__/
 *.pyo
 *.pyd
 *.db
-.env
-venv/
+.venv/
 uploads/
 *.log
